@@ -39,3 +39,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+./barber-saas-b7612-firebase-adminsdk-fbsvc-678e6f014c.json

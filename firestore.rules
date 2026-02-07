@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function getUserShopId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.shopId;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || getUserRole() == 'platform_admin');
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (request.auth.uid == userId || getUserRole() == 'platform_admin');
+      allow delete: if isSignedIn() && getUserRole() == 'platform_admin';
+    }
+
+    match /barbershops/{shopId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && getUserRole() == 'platform_admin';
+      allow update: if isSignedIn() && (getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == shopId));
+      allow delete: if isSignedIn() && getUserRole() == 'platform_admin';
+    }
+
+    match /barbers/{barberId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == request.resource.data.shopId));
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == resource.data.shopId));
+      allow delete: if isSignedIn() && (getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == resource.data.shopId));
+    }
+
+    match /requests/{requestId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || getUserRole() == 'platform_admin');
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'pending';
+      allow update: if isSignedIn() && getUserRole() == 'platform_admin';
+      allow delete: if isSignedIn() && getUserRole() == 'platform_admin';
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.clientId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.clientId == request.auth.uid
+        || getUserRole() == 'platform_admin'
+        || (getUserRole() == 'shop_admin' && getUserShopId() == resource.data.shopId)
+        || (exists(/databases/$(database)/documents/barbers/$(resource.data.barberId)) && get(/databases/$(database)/documents/barbers/$(resource.data.barberId)).data.userId == request.auth.uid)
+      );
+      allow delete: if isSignedIn() && getUserRole() == 'platform_admin';
+    }
+  }
+}
