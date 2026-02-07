@@ -13,6 +13,7 @@ interface Barbershop {
   id: string;
   name: string;
   address: string;
+  status?: string;
 }
 
 interface Barber {
@@ -41,7 +42,8 @@ export default function BookPage() {
 
   useEffect(() => {
     getDocs(collection(db, "barbershops")).then((snap) => {
-      setShops(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Barbershop)));
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Barbershop));
+      setShops(all.filter((s) => s.status !== "suspended"));
       setLoading(false);
     });
   }, []);

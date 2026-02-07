@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -21,9 +21,10 @@ export default function ShopDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { profile } = useAuth();
-  const [shop, setShop] = useState<{ name: string; address: string; phone?: string } | null>(null);
+  const [shop, setShop] = useState<{ name: string; address: string; phone?: string; status?: string } | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -46,6 +47,20 @@ export default function ShopDetailPage() {
   const canManageBarbers =
     profile?.role === "platform_admin" ||
     (profile?.role === "shop_admin" && profile?.shopId === id);
+  const isPlatformAdmin = profile?.role === "platform_admin";
+  const isSuspended = shop?.status === "suspended";
+
+  const setStatus = async (status: string) => {
+    setUpdatingStatus(true);
+    try {
+      await updateDoc(doc(db, "barbershops", id), { status });
+      setShop((prev) => (prev ? { ...prev, status } : null));
+    } catch (err) {
+      console.error("Update status error:", err);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   return (
     <ProtectedRoute allowedRoles={["platform_admin", "shop_admin"]}>
@@ -62,9 +77,31 @@ export default function ShopDetailPage() {
           <p className="text-zinc-600">Carregando...</p>
         ) : (
           <>
-            <h1 className="mb-2 text-2xl font-bold text-zinc-900">
-              {shop?.name ?? "Barbearia"}
-            </h1>
+            <div className="mb-2 flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-zinc-900">
+                {shop?.name ?? "Barbearia"}
+              </h1>
+              {isPlatformAdmin && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-zinc-600">Status:</span>
+                  <select
+                    value={shop?.status ?? "active"}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={updatingStatus}
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm disabled:opacity-50"
+                  >
+                    <option value="active">Ativa</option>
+                    <option value="trial">Trial</option>
+                    <option value="suspended">Suspensa</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            {isSuspended && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                Barbearia suspensa. Agendamentos bloqueados e não é possível adicionar barbeiros.
+              </div>
+            )}
             <p className="mb-2 text-zinc-800">{shop?.address}</p>
             {shop?.phone && (
               <p className="mb-6 text-sm text-zinc-800">{shop.phone}</p>
@@ -96,7 +133,7 @@ export default function ShopDetailPage() {
               ))}
             </div>
 
-            {canManageBarbers && (
+            {canManageBarbers && !isSuspended && (
               <Link
                 href={`/admin/shops/${id}/barbers/new`}
                 className="mt-6 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-800"

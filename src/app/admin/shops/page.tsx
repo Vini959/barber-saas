@@ -14,6 +14,7 @@ interface Barbershop {
   name: string;
   address: string;
   phone: string;
+  status?: string;
 }
 
 export default function AdminShopsPage() {
@@ -74,12 +75,13 @@ export default function AdminShopsPage() {
         name,
         address,
         phone,
+        status: "active",
         createdAt: new Date().toISOString(),
       });
       setName("");
       setAddress("");
       setPhone("");
-      setShops((prev) => [...prev, { id: ref.id, name, address, phone }]);
+      setShops((prev) => [...prev, { id: ref.id, name, address, phone, status: "active" }]);
     } catch (err) {
       console.error("Create shop error:", err);
     } finally {
@@ -124,7 +126,20 @@ export default function AdminShopsPage() {
                 href={`/admin/shops/${s.id}`}
                 className="block rounded-lg border border-zinc-300 bg-white p-4 hover:bg-zinc-50"
               >
-                <h2 className="font-medium">{s.name}</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-medium">{s.name}</h2>
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-medium ${
+                      s.status === "suspended"
+                        ? "bg-red-100 text-red-800"
+                        : s.status === "trial"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {s.status === "suspended" ? "Suspensa" : s.status === "trial" ? "Trial" : "Ativa"}
+                  </span>
+                </div>
                 <p className="text-sm text-zinc-800">{s.address}</p>
               </Link>
             ))}

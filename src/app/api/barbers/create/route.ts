@@ -41,6 +41,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const shopDoc = await adminDb.collection("barbershops").doc(bodyShopId).get();
+    const shopStatus = shopDoc.exists ? (shopDoc.data() as { status?: string })?.status : undefined;
+    if (shopStatus === "suspended") {
+      return NextResponse.json(
+        { error: "Barbearia suspensa. Não é possível adicionar barbeiros." },
+        { status: 403 }
+      );
+    }
+
     const newUser = await adminAuth.createUser({
       email,
       password,
