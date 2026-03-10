@@ -1,5 +1,5 @@
 declare module "firebase/firestore" {
-  export interface Firestore {}
+  export type Firestore = object;
   export interface DocumentReference {
     id: string;
   }
@@ -11,7 +11,7 @@ declare module "firebase/firestore" {
   export interface QuerySnapshot {
     docs: Array<{ id: string; data(): Record<string, unknown> }>;
   }
-  export interface QueryConstraint {}
+  export type QueryConstraint = object;
 
   export function getFirestore(app?: unknown): Firestore;
   export function doc(
@@ -44,4 +44,9 @@ declare module "firebase/firestore" {
     data: Record<string, unknown>
   ): Promise<void>;
   export function deleteDoc(ref: DocumentReference): Promise<void>;
+  export function onSnapshot(
+    ref: DocumentReference,
+    onNext: (snapshot: DocumentSnapshot) => void,
+    onError?: (error: Error) => void
+  ): () => void;
 }
