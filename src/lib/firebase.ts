@@ -11,7 +11,15 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app: FirebaseApp = getApps().length ? getApps()[0] as FirebaseApp : initializeApp(firebaseConfig);
+const missingFirebaseConfig = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingFirebaseConfig.length > 0) {
+  console.error("Firebase config ausente:", missingFirebaseConfig.join(", "));
+}
+
+const app: FirebaseApp = getApps().length ? (getApps()[0] as FirebaseApp) : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export default app;

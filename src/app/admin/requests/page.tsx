@@ -6,7 +6,9 @@ import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "fireb
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SignOutButton } from "@/components/SignOutButton";
+import { PageContainer } from "@/components/PageContainer";
+import { Button } from "@/components/ui/Button";
+import { ArrowLeft } from "lucide-react";
 
 interface Request {
   id: string;
@@ -19,7 +21,9 @@ interface Request {
 
 export default function AdminRequestsPage() {
   const { profile } = useAuth();
-  const [requests, setRequests] = useState<(Request & { userName?: string; userEmail?: string; shopName?: string })[]>([]);
+  const [requests, setRequests] = useState<
+    (Request & { userName?: string; userEmail?: string; shopName?: string })[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
 
@@ -63,7 +67,7 @@ export default function AdminRequestsPage() {
         });
         if (req.requestedRole === "barber") {
           const userSnap = await getDoc(doc(db, "users", req.userId));
-          const u = userSnap.exists() ? userSnap.data() as { name?: string; email?: string } : {};
+          const u = userSnap.exists() ? (userSnap.data() as { name?: string; email?: string }) : {};
           await import("firebase/firestore").then(({ addDoc, collection }) =>
             addDoc(collection(db, "barbers"), {
               userId: req.userId,
@@ -90,59 +94,61 @@ export default function AdminRequestsPage() {
 
   return (
     <ProtectedRoute allowedRoles={["platform_admin"]}>
-      <div className="min-h-screen bg-zinc-100">
-        <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-12">
-          <header className="mb-8 flex items-center justify-between">
-            <Link href="/admin/shops" className="text-zinc-800 hover:text-zinc-900">
-              ← Admin
-            </Link>
-            <SignOutButton />
-          </header>
+      <PageContainer>
+        <Link
+          href="/admin/shops"
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="size-4" />
+          Admin
+        </Link>
 
-          <h1 className="mb-6 text-2xl font-bold text-zinc-900">Solicitações</h1>
+        <h1 className="mb-6 text-2xl font-bold text-slate-900">Solicitações</h1>
 
-          {loading ? (
-            <p className="text-zinc-600">Carregando...</p>
-          ) : requests.length === 0 ? (
-            <p className="text-zinc-600">Nenhuma solicitação pendente.</p>
-          ) : (
-            <div className="space-y-4">
-              {requests.map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded-lg border border-zinc-300 bg-white p-4"
-                >
-                  <p className="font-medium">{r.userName}</p>
-                  {r.userEmail && <p className="text-sm text-zinc-600">{r.userEmail}</p>}
-                  <p className="mt-2 text-sm">
-                    Solicita: <strong>{r.requestedRole === "barber" ? "Barbeiro" : "Admin da barbearia"}</strong>
-                    {" · "}
-                    {r.shopName}
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => resolve(r.id, "approved")}
-                      disabled={actionId === r.id}
-                      className="rounded bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {actionId === r.id ? "..." : "Aprovar"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => resolve(r.id, "declined")}
-                      disabled={actionId === r.id}
-                      className="rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Recusar
-                    </button>
-                  </div>
+        {loading ? (
+          <div className="flex items-center gap-3">
+            <div className="size-6 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
+            <p className="text-slate-600">Carregando...</p>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+            <p className="text-slate-600">Nenhuma solicitação pendente.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {requests.map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <p className="font-semibold text-slate-900">{r.userName}</p>
+                {r.userEmail && <p className="text-sm text-slate-600">{r.userEmail}</p>}
+                <p className="mt-2 text-sm text-slate-600">
+                  Solicita: <strong>{r.requestedRole === "barber" ? "Barbeiro" : "Admin"}</strong> · {r.shopName}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => resolve(r.id, "approved")}
+                    disabled={actionId === r.id}
+                  >
+                    {actionId === r.id ? "..." : "Aprovar"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => resolve(r.id, "declined")}
+                    disabled={actionId === r.id}
+                  >
+                    Recusar
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </PageContainer>
     </ProtectedRoute>
   );
 }

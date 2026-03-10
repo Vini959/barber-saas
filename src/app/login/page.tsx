@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { getFirebaseAuthErrorMessage } from "@/lib/firebase-errors";
+import { Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,10 +22,10 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
       router.push("/");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Falha no login");
+      setError(getFirebaseAuthErrorMessage(err, "Falha no login."));
       console.error("Login error:", err);
     } finally {
       setLoading(false);
@@ -29,48 +33,50 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-100 px-6 py-8 sm:px-8">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
-        <h1 className="mb-6 text-center text-2xl font-bold text-zinc-900">The Barber</h1>
-        <h2 className="mb-4 text-center text-lg text-zinc-800">Entrar</h2>
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
-          <input
-            id="login-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
-            required
-          />
-          <input
-            id="login-password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
-            required
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-zinc-900 py-2 font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-          >
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-sm text-zinc-800">
-          Não tem conta?{" "}
-          <Link href="/register" className="font-medium text-zinc-900 underline">
-            Cadastrar
-          </Link>
-        </p>
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold text-slate-900">Entrar</h1>
+          <p className="mt-2 text-slate-600">Acesse sua conta para continuar</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
+            <Input
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              leftIcon={<Mail className="size-5" />}
+              required
+            />
+            <Input
+              label="Senha"
+              type="password"
+              autoComplete="current-password"
+              placeholder="********"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              leftIcon={<Lock className="size-5" />}
+              required
+            />
+            {error && (
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            )}
+            <Button type="submit" fullWidth size="lg" variant="primary" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar"}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Nao tem conta? {" "}
+            <Link href="/register" className="font-semibold text-slate-900 hover:underline">
+              Cadastrar
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

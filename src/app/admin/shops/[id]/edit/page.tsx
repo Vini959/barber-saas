@@ -8,7 +8,10 @@ import { validateAddress, validatePhone } from "@/lib/validation";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SignOutButton } from "@/components/SignOutButton";
+import { PageContainer } from "@/components/PageContainer";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ArrowLeft } from "lucide-react";
 
 export default function EditShopPage() {
   const params = useParams();
@@ -57,8 +60,7 @@ export default function EditShopPage() {
     }
     setSubmitting(true);
     try {
-      const shopRef = doc(db, "barbershops", id);
-      await updateDoc(shopRef, {
+      await updateDoc(doc(db, "barbershops", id), {
         name,
         address,
         phone,
@@ -75,71 +77,49 @@ export default function EditShopPage() {
 
   return (
     <ProtectedRoute allowedRoles={["platform_admin", "shop_admin"]}>
-      <div className="min-h-screen bg-zinc-100">
-        <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-12">
-        <header className="mb-8 flex items-center justify-between">
-          <Link
-            href={`/admin/shops/${id}`}
-            className="text-zinc-800 hover:text-zinc-900"
-          >
-            ← Voltar
-          </Link>
-          <SignOutButton />
-        </header>
+      <PageContainer>
+        <Link
+          href={`/admin/shops/${id}`}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="size-4" />
+          Voltar
+        </Link>
 
-        <h1 className="mb-6 text-2xl font-bold text-zinc-900">Editar barbearia</h1>
+        <h1 className="mb-6 text-2xl font-bold text-slate-900">Editar barbearia</h1>
 
         {loading ? (
-          <p className="text-zinc-600">Carregando...</p>
+          <div className="flex items-center gap-3">
+            <div className="size-6 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
+            <p className="text-slate-600">Carregando...</p>
+          </div>
         ) : !canEdit ? (
-          <p className="text-zinc-600">Você não tem permissão para editar esta barbearia.</p>
+          <p className="text-slate-600">Você não tem permissão para editar esta barbearia.</p>
         ) : (
-          <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-800">Nome</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-800">Endereço</label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
-                required
-                minLength={10}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-800">Telefone</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
-              />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {success && (
-              <p className="text-sm text-green-600">Barbearia atualizada com sucesso.</p>
+          <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-5">
+            <Input label="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input
+              label="Endereço"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              required
+              minLength={10}
+            />
+            <Input label="Telefone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            {error && (
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>
             )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-lg bg-zinc-900 py-2 font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-            >
+            {success && (
+              <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
+                Barbearia atualizada com sucesso.
+              </div>
+            )}
+            <Button type="submit" fullWidth size="lg" variant="primary" disabled={submitting}>
               {submitting ? "Salvando..." : "Salvar"}
-            </button>
+            </Button>
           </form>
         )}
-        </div>
-      </div>
+      </PageContainer>
     </ProtectedRoute>
   );
 }

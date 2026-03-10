@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { collection, doc, getDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import { addDoc, collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SignOutButton } from "@/components/SignOutButton";
+import { PageContainer } from "@/components/PageContainer";
+import { Button } from "@/components/ui/Button";
+import { ScheduleCalendar } from "@/components/ui/ScheduleCalendar";
+import { ArrowLeft, Calendar, Settings } from "lucide-react";
 
 interface Appointment {
   id: string;
@@ -16,27 +20,45 @@ interface Appointment {
   status: string;
 }
 
-interface BarberDoc {
-  id: string;
-  shopId: string;
-}
-
 export default function BarberSchedulePage() {
+  const router = useRouter();
   const { user, profile } = useAuth();
   const [barberId, setBarberId] = useState<string | null>(null);
   const [shopName, setShopName] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
+  const today = new Date();
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+
   useEffect(() => {
-    if (!user) return;
-    const uid = user.uid;
+    const uid = user?.uid;
+    if (!uid) return;
     async function load() {
-      const barbersSnap = await getDocs(
+      let barbersSnap = await getDocs(
         query(collection(db, "barbers"), where("userId", "==", uid))
       );
-      const b = barbersSnap.docs[0];
+      let b = barbersSnap.docs[0];
+
+      if (!b && profile?.role === "barber" && profile?.shopId) {
+        try {
+          await addDoc(collection(db, "barbers"), {
+            userId: uid,
+            shopId: profile.shopId,
+            displayName: profile.name ?? "Barbeiro",
+            email: profile.email ?? "",
+            createdAt: new Date().toISOString(),
+          });
+          barbersSnap = await getDocs(
+            query(collection(db, "barbers"), where("userId", "==", uid))
+          );
+          b = barbersSnap.docs[0];
+        } catch (err) {
+          console.error("Erro ao criar perfil de barbeiro:", err);
+        }
+      }
+
       if (!b) {
         setLoading(false);
         return;
@@ -51,28 +73,12 @@ export default function BarberSchedulePage() {
       }
 
       const appsSnap = await getDocs(
-        query(
-          collection(db, "appointments"),
-          where("barberId", "==", b.id)
-        )
+        query(collection(db, "appointments"), where("barberId", "==", b.id))
       );
       const apps = appsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() } as Appointment))
         .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
       setAppointments(apps);
-
-      const clientIds = [...new Set(apps.map((a) => a.clientId))];
-      const names: Record<string, string> = {};
-      for (const cid of clientIds) {
-        const u = await getDoc(doc(db, "users", cid));
-        if (u.exists()) {
-          const d = u.data() as { name?: string; email?: string };
-          names[cid] = d.name ?? d.email ?? cid;
-        } else {
-          names[cid] = cid;
-        }
-      }
-      setClientNames(names);
       setLoading(false);
     }
     load();
@@ -82,94 +88,95 @@ export default function BarberSchedulePage() {
     if (shopName) document.title = `The Barber - ${shopName}`;
   }, [shopName]);
 
-  const updateStatus = async (appointmentId: string, status: string) => {
-    try {
-      await updateDoc(doc(db, "appointments", appointmentId), { status });
-      setAppointments((prev) =>
-        prev.map((a) => (a.id === appointmentId ? { ...a, status } : a))
-      );
-    } catch (err) {
-      console.error("Update status error:", err);
+  const dayInfo = useMemo(() => {
+    const byDate: Record<string, number> = {};
+    for (const a of appointments) {
+      if (a.status !== "cancelled") {
+        byDate[a.date] = (byDate[a.date] ?? 0) + 1;
+      }
     }
+    return (dateStr: string) => {
+      const count = byDate[dateStr];
+      if (!count) return null;
+      return { dateStr, hasAppointments: true, appointmentCount: count };
+    };
+  }, [appointments]);
+
+  const handleViewChange = (month: number, year: number) => {
+    setViewMonth(month);
+    setViewYear(year);
+  };
+
+  const handleSelectDate = (dateStr: string) => {
+    router.push(`/barber/schedule/${dateStr}`);
   };
 
   return (
     <ProtectedRoute allowedRoles={["client", "barber", "shop_admin", "platform_admin"]}>
-      <div className="min-h-screen bg-zinc-100">
-        <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-12">
-        <header className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-zinc-800 hover:text-zinc-900">
-              ← Voltar
-            </Link>
-            <h1 className="text-xl font-bold text-zinc-900">
-              The Barber{shopName ? ` - ${shopName}` : ""}
-            </h1>
-          </div>
-          <div className="flex gap-4">
-            <Link href="/barber/settings" className="text-zinc-800 hover:text-zinc-900">
-              Meus horários
-            </Link>
-            <SignOutButton />
-          </div>
-        </header>
+      <PageContainer>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="size-4" />
+            Voltar
+          </Link>
+          <Link
+            href="/barber/settings"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            <Settings className="size-4" />
+            Meus horários
+          </Link>
+        </div>
 
-        <h1 className="mb-6 text-2xl font-bold text-zinc-900">Minha agenda</h1>
+        <h1 className="mb-6 text-2xl font-bold text-slate-900">Minha agenda</h1>
 
         {loading ? (
-          <p className="text-zinc-600">Carregando...</p>
+          <div className="flex items-center gap-3">
+            <div className="size-6 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
+            <p className="text-slate-600">Carregando...</p>
+          </div>
         ) : !barberId ? (
-          <p className="text-zinc-600">Perfil de barbeiro não encontrado.</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+            <p className="text-slate-600">Você não tem perfil de barbeiro vinculado.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Se você solicitou ser barbeiro, aguarde a aprovação do administrador.
+            </p>
+            <Link href="/" className="mt-4 inline-block">
+              <Button variant="outline">Voltar ao início</Button>
+            </Link>
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-slate-100">
+              <Calendar className="size-8 text-slate-400" />
+            </div>
+            <p className="font-medium text-slate-900">Nenhum agendamento</p>
+            <p className="mt-2 text-sm text-slate-600">
+              Sua agenda está vazia. Os clientes podem agendar quando você definir seus horários.
+            </p>
+            <Link href="/barber/settings" className="mt-6 inline-block">
+              <Button variant="outline">Configurar horários</Button>
+            </Link>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {appointments.map((a) => (
-              <div
-                key={a.id}
-                className="rounded-lg border border-zinc-300 bg-white p-4"
-              >
-                <p className="font-medium">
-                  {a.date} às {a.time}
-                </p>
-                <p className="text-sm text-zinc-600">{clientNames[a.clientId] ?? a.clientId}</p>
-                <span
-                  className={`mt-2 inline-block rounded px-2 py-1 text-xs ${
-                    a.status === "confirmed"
-                      ? "bg-green-100 text-green-800"
-                      : a.status === "cancelled"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-zinc-100 text-zinc-800"
-                  }`}
-                >
-                  {a.status === "pending" && "Pendente"}
-                  {a.status === "confirmed" && "Confirmado"}
-                  {a.status === "cancelled" && "Cancelado"}
-                  {a.status === "done" && "Concluído"}
-                  {!["pending", "confirmed", "cancelled", "done"].includes(a.status) && a.status}
-                </span>
-                {a.status === "pending" && (
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateStatus(a.id, "confirmed")}
-                      className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
-                    >
-                      Confirmar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateStatus(a.id, "cancelled")}
-                      className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="space-y-6">
+            <div>
+              <p className="mb-3 text-sm font-medium text-slate-700">Clique em um dia para ver os agendamentos</p>
+              <ScheduleCalendar
+                viewMonth={viewMonth}
+                viewYear={viewYear}
+                onViewChange={handleViewChange}
+                selectedDate={null}
+                onSelectDate={handleSelectDate}
+                dayInfo={dayInfo}
+              />
+            </div>
           </div>
         )}
-        </div>
-      </div>
+      </PageContainer>
     </ProtectedRoute>
   );
 }

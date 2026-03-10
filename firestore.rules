@@ -27,9 +27,20 @@ service cloud.firestore {
 
     match /barbers/{barberId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && (getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == request.resource.data.shopId));
+      allow create: if isSignedIn() && (
+        getUserRole() == 'platform_admin'
+        || (getUserRole() == 'shop_admin' && getUserShopId() == request.resource.data.shopId)
+        || (getUserRole() == 'barber' && request.resource.data.userId == request.auth.uid && request.resource.data.shopId == getUserShopId())
+      );
       allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == resource.data.shopId));
       allow delete: if isSignedIn() && (getUserRole() == 'platform_admin' || (getUserRole() == 'shop_admin' && getUserShopId() == resource.data.shopId));
+    }
+
+    match /barbers/{barberId}/clientNotes/{clientId} {
+      allow read, write: if isSignedIn() && (
+        get(/databases/$(database)/documents/barbers/$(barberId)).data.userId == request.auth.uid
+        || getUserRole() == 'platform_admin'
+      );
     }
 
     match /requests/{requestId} {

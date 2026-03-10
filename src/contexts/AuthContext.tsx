@@ -15,7 +15,7 @@ import {
   sendEmailVerification,
   type User,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 export type UserRole = "client" | "barber" | "shop_admin" | "platform_admin";
@@ -36,6 +36,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
+  updateProfileName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -45,34 +46,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (uid: string) => {
-    const docRef = doc(db, "users", uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const d = docSnap.data() as { email?: string; name?: string; role?: UserRole; shopId?: string };
-      setProfile({
-        uid,
-        email: d.email ?? "",
-        name: d.name ?? "",
-        role: d.role ?? "client",
-        shopId: d.shopId,
-      });
-    } else {
-      setProfile(null);
+  const normalizeRole = (r: unknown): UserRole => {
+    const s = String(r ?? "").toLowerCase();
+    if (["client", "barber", "shop_admin", "platform_admin"].includes(s)) {
+      return s as UserRole;
     }
+    return "client";
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubProfile: (() => void) | null = null;
+
+    const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      if (firebaseUser) {
-        await fetchProfile(firebaseUser.uid);
-      } else {
-        setProfile(null);
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = null;
       }
-      setLoading(false);
+      if (!firebaseUser) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      const docRef = doc(db, "users", firebaseUser.uid);
+      unsubProfile = onSnapshot(
+        docRef,
+        (snap) => {
+          if (snap.exists()) {
+            const d = snap.data() as { email?: string; name?: string; role?: unknown; shopId?: string };
+            setProfile({
+              uid: firebaseUser.uid,
+              email: d.email ?? firebaseUser.email ?? "",
+              name: d.name ?? firebaseUser.displayName ?? "",
+              role: normalizeRole(d.role),
+              shopId: d.shopId,
+            });
+          } else {
+            setProfile(null);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Profile fetch error:", err);
+          setProfile(null);
+          setLoading(false);
+        }
+      );
     });
-    return () => unsub();
+
+    return () => {
+      unsubAuth();
+      unsubProfile?.();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -82,14 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
     await sendEmailVerification(newUser);
-    const { setDoc } = await import("firebase/firestore");
     await setDoc(doc(db, "users", newUser.uid), {
       email,
       name,
       role: "client",
       createdAt: new Date().toISOString(),
     });
-    await fetchProfile(newUser.uid);
   };
 
   const sendVerificationEmail = async () => {
@@ -103,8 +126,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const updateProfileName = async (name: string) => {
+    if (!auth.currentUser) return;
+    await updateDoc(doc(db, "users", auth.currentUser.uid), {
+      name: name.trim(),
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, sendVerificationEmail }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, sendVerificationEmail, updateProfileName }}>
       {children}
     </AuthContext.Provider>
   );

@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SignOutButton } from "@/components/SignOutButton";
+import { PageContainer } from "@/components/PageContainer";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { DAY_NAMES } from "@/lib/slots";
+import { ArrowLeft } from "lucide-react";
 
 type DayConfig = { start: string; end: string; duration: number } | null;
 
@@ -63,83 +66,85 @@ export default function NewBarberPage() {
       if (!res.ok) throw new Error(data.error ?? "Failed to create barber");
       window.location.href = `/admin/shops/${shopId}`;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error ? err.message : "Falha ao criar");
       console.error("Create barber error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClass =
+    "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
+
   return (
     <ProtectedRoute allowedRoles={["platform_admin", "shop_admin"]}>
-      <div className="min-h-screen bg-zinc-100">
-        <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-12">
-        <header className="mb-8 flex items-center justify-between">
-          <Link
-            href={`/admin/shops/${shopId}`}
-            className="text-zinc-800 hover:text-zinc-900"
-          >
-            ← Voltar
-          </Link>
-          <SignOutButton />
-        </header>
+      <PageContainer>
+        <Link
+          href={`/admin/shops/${shopId}`}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="size-4" />
+          Voltar
+        </Link>
 
-        <h1 className="mb-6 text-2xl font-bold">Adicionar barbeiro</h1>
+        <h1 className="mb-6 text-2xl font-bold text-slate-900">Adicionar barbeiro</h1>
 
-        <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-4">
-          <input
-            type="text"
-            placeholder="Nome"
+        <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-5">
+          <Input
+            label="Nome"
+            placeholder="Nome do barbeiro"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
             required
           />
-          <input
+          <Input
+            label="E-mail"
             type="email"
             autoComplete="email"
-            placeholder="E-mail"
+            placeholder="email@exemplo.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
             required
           />
-          <input
+          <Input
+            label="Senha"
             type="password"
             autoComplete="new-password"
-            placeholder="Senha"
+            placeholder="Mínimo 6 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
             required
             minLength={6}
           />
-          <input
-            type="text"
-            placeholder="Chave Pix (opcional)"
+          <Input
+            label="Chave Pix (opcional)"
+            placeholder="CPF, e-mail ou chave aleatória"
             value={pixKey}
             onChange={(e) => setPixKey(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-zinc-900 placeholder:text-zinc-800"
           />
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <p className="mb-2 text-sm font-medium text-zinc-700">Horários por dia</p>
-            <p className="mb-3 text-xs text-zinc-500">De que hora até que hora pode agendar. Marque &quot;Fechado&quot; para dias sem atendimento.</p>
-            <div className="space-y-2">
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+            <p className="mb-3 text-sm font-medium text-slate-700">Horários por dia</p>
+            <p className="mb-4 text-xs text-slate-500">
+              Marque &quot;Fechado&quot; para dias sem atendimento.
+            </p>
+            <div className="space-y-3">
               {DAY_NAMES.map((name, i) => {
                 const k = String(i);
                 const dayConfig = schedule[k];
                 const isClosed = dayConfig === null;
                 return (
-                  <div key={k} className="flex flex-wrap items-end gap-2 rounded border border-zinc-200 bg-white p-2">
-                    <div className="w-10 text-sm font-medium text-zinc-800">{name}</div>
+                  <div
+                    key={k}
+                    className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3"
+                  >
+                    <div className="w-10 text-sm font-medium text-slate-800">{name}</div>
                     <label className="flex items-center gap-1 text-sm">
                       <input
                         type="checkbox"
                         checked={isClosed}
-                        onChange={(e) =>
-                          setDay(k, e.target.checked ? null : { ...DEFAULT_DAY })
-                        }
-                        className="rounded"
+                        onChange={(e) => setDay(k, e.target.checked ? null : { ...DEFAULT_DAY })}
+                        className="rounded border-slate-300"
                       />
                       Fechado
                     </label>
@@ -151,16 +156,16 @@ export default function NewBarberPage() {
                           onChange={(e) =>
                             setDay(k, { ...(dayConfig ?? DEFAULT_DAY), start: e.target.value } as DayConfig)
                           }
-                          className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                          className={inputClass}
                         />
-                        <span className="text-zinc-400">–</span>
+                        <span className="text-slate-400">–</span>
                         <input
                           type="time"
                           value={(dayConfig ?? DEFAULT_DAY).end}
                           onChange={(e) =>
                             setDay(k, { ...(dayConfig ?? DEFAULT_DAY), end: e.target.value } as DayConfig)
                           }
-                          className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                          className={inputClass}
                         />
                         <input
                           type="number"
@@ -174,10 +179,10 @@ export default function NewBarberPage() {
                               duration: Number(e.target.value) || 40,
                             } as DayConfig)
                           }
-                          className="w-14 rounded border border-zinc-300 px-2 py-1 text-sm"
+                          className={`w-14 ${inputClass}`}
                           title="Duração (min)"
                         />
-                        <span className="text-xs text-zinc-500">min</span>
+                        <span className="text-xs text-slate-500">min</span>
                       </>
                     )}
                   </div>
@@ -185,17 +190,15 @@ export default function NewBarberPage() {
               })}
             </div>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-zinc-900 py-2 font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-          >
+
+          {error && (
+            <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>
+          )}
+          <Button type="submit" fullWidth size="lg" variant="primary" disabled={loading}>
             {loading ? "Criando..." : "Criar barbeiro"}
-          </button>
+          </Button>
         </form>
-        </div>
-      </div>
+      </PageContainer>
     </ProtectedRoute>
   );
 }
