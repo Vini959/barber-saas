@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import { SignOutButton } from "@/components/SignOutButton";
 import { reload } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { PageContainer } from "@/components/PageContainer";
+import { CardLink } from "@/components/ui/Card";
+import { Calendar, Scissors, Building2, Users, ClipboardList, Send, User } from "lucide-react";
 
 export default function HomePage() {
   const { user, profile, loading, sendVerificationEmail } = useAuth();
@@ -16,7 +17,6 @@ export default function HomePage() {
   const [resending, setResending] = useState(false);
   const [dismissedEmailAlert, setDismissedEmailAlert] = useState(false);
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
-  const [shopName, setShopName] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ role: string; shopName: string } | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const router = useRouter();
@@ -28,12 +28,7 @@ export default function HomePage() {
         const hasBarber = snap.docs.length > 0;
         setIsAlsoBarber(hasBarber);
         if (hasBarber) {
-          const b = snap.docs[0];
-          const shopId = (b.data() as { shopId?: string }).shopId;
-          if (shopId) {
-            const shopSnap = await getDoc(doc(db, "barbershops", shopId));
-            if (shopSnap.exists()) setShopName((shopSnap.data() as { name?: string }).name ?? null);
-          }
+          setIsAlsoBarber(true);
         }
         const reqSnap = await getDocs(
           query(collection(db, "requests"), where("userId", "==", user.uid), where("status", "==", "pending"))
@@ -61,17 +56,18 @@ export default function HomePage() {
   }, [profile?.role]);
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
+    if (!loading && !user) {
       router.replace("/login");
-      return;
     }
   }, [user, loading, router]);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-zinc-600">Carregando...</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
+          <p className="text-sm text-slate-600">Carregando...</p>
+        </div>
       </div>
     );
   }
@@ -84,7 +80,7 @@ export default function HomePage() {
     try {
       await sendVerificationEmail();
       setResendMsg("E-mail enviado. Verifique sua caixa de entrada.");
-    } catch (err) {
+    } catch {
       setResendMsg("Falha ao enviar. Tente novamente depois.");
     } finally {
       setResending(false);
@@ -92,121 +88,152 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-100">
-      <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-12">
-      {pendingRequest && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
-          <p className="font-medium">Solicitação pendente</p>
-          <p className="mt-1 text-sm">
-            Aguardando aprovação para ser {pendingRequest.role} em {pendingRequest.shopName}.
-          </p>
-        </div>
-      )}
-      {user && !user.emailVerified && !dismissedEmailAlert && (
-        <div className="relative mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 pr-10 text-amber-900">
-          <button
-            type="button"
-            onClick={() => setDismissedEmailAlert(true)}
-            className="absolute right-2 top-2 rounded p-1 text-amber-900 hover:bg-amber-100"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-          <p className="font-medium">Verifique seu e-mail</p>
-          <p className="mt-1 text-sm">
-            Enviamos um link de verificação para {user.email}. Clique para verificar.
-          </p>
-          <div className="mt-2 flex gap-4">
-            <button
-              type="button"
-              onClick={handleResendVerification}
-              disabled={resending}
-              className="text-sm font-medium underline hover:no-underline disabled:opacity-50"
-            >
-              {resending ? "Enviando..." : "Reenviar"}
-            </button>
-            <button
-              type="button"
-              onClick={() => auth.currentUser && reload(auth.currentUser)}
-              className="text-sm font-medium underline hover:no-underline"
-            >
-              Já verifiquei, atualizar
-            </button>
+    <PageContainer>
+      <div className="space-y-6">
+        {pendingRequest && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <p className="font-medium">Solicitacao pendente</p>
+            <p className="mt-1 text-sm text-amber-800">
+              Aguardando aprovacao para ser {pendingRequest.role} em {pendingRequest.shopName}.
+            </p>
           </div>
-          {resendMsg && (
-            <p className="mt-2 text-sm">{resendMsg}</p>
+        )}
+
+        {user && !user.emailVerified && !dismissedEmailAlert && (
+          <div className="relative rounded-2xl border border-amber-200 bg-amber-50 p-4 pr-10 text-amber-900">
+            <button
+              type="button"
+              onClick={() => setDismissedEmailAlert(true)}
+              className="absolute right-3 top-3 cursor-pointer rounded-lg p-1 text-amber-700 hover:bg-amber-100"
+              aria-label="Fechar"
+            >
+              x
+            </button>
+            <p className="font-medium">Verifique seu e-mail</p>
+            <p className="mt-1 text-sm text-amber-800">Enviamos um link de verificacao para {user.email}.</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resending}
+                className="cursor-pointer text-sm font-medium text-amber-800 underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resending ? "Enviando..." : "Reenviar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => auth.currentUser && reload(auth.currentUser)}
+                className="cursor-pointer text-sm font-medium text-amber-800 underline hover:no-underline"
+              >
+                Ja verifiquei, atualizar
+              </button>
+            </div>
+            {resendMsg && <p className="mt-2 text-sm">{resendMsg}</p>}
+          </div>
+        )}
+
+        <div className="mb-2">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Ola{profile?.name ? `, ${profile.name.split(" ")[0]}` : ""}
+          </h1>
+          <p className="mt-1 text-slate-600">O que voce gostaria de fazer hoje?</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CardLink href="/profile" variant="secondary">
+            <span className="flex items-center gap-3">
+              <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100">
+                <User className="size-6 text-slate-600" />
+              </span>
+              <span className="font-semibold">Meu perfil</span>
+            </span>
+          </CardLink>
+          {profile?.role === "client" && (
+            <>
+              <CardLink href="/book" variant="primary">
+                <span className="flex items-center gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-white/20">
+                    <Calendar className="size-6" />
+                  </span>
+                  <span className="font-semibold">Agendar</span>
+                </span>
+              </CardLink>
+              <CardLink href="/my-appointments" variant="secondary">
+                <span className="flex items-center gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100">
+                    <ClipboardList className="size-6 text-slate-600" />
+                  </span>
+                  <span className="font-semibold">Meus agendamentos</span>
+                </span>
+              </CardLink>
+            </>
+          )}
+
+          {(profile?.role === "shop_admin" || profile?.role === "platform_admin") && (
+            <CardLink href="/admin/shops" variant="primary">
+              <span className="flex items-center gap-3">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-white/20">
+                  <Building2 className="size-6" />
+                </span>
+                <span className="font-semibold">Gerenciar barbearias</span>
+              </span>
+            </CardLink>
+          )}
+
+          {profile?.role === "platform_admin" && (
+            <>
+              <CardLink
+                href="/admin/requests"
+                variant="secondary"
+                badge={
+                  pendingRequestsCount > 0 ? (
+                    <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-medium text-white">
+                      {pendingRequestsCount}
+                    </span>
+                  ) : undefined
+                }
+              >
+                <span className="flex items-center gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100">
+                    <ClipboardList className="size-6 text-slate-600" />
+                  </span>
+                  <span className="font-semibold">Solicitacoes</span>
+                </span>
+              </CardLink>
+              <CardLink href="/admin/users" variant="secondary">
+                <span className="flex items-center gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100">
+                    <Users className="size-6 text-slate-600" />
+                  </span>
+                  <span className="font-semibold">Gerenciar usuarios</span>
+                </span>
+              </CardLink>
+            </>
+          )}
+
+          {(profile?.role === "barber" || isAlsoBarber) && (
+            <CardLink href="/barber/schedule" variant="primary">
+              <span className="flex items-center gap-3">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-white/20">
+                  <Scissors className="size-6" />
+                </span>
+                <span className="font-semibold">Minha agenda</span>
+              </span>
+            </CardLink>
+          )}
+
+          {profile?.role !== "client" && profile?.role !== "shop_admin" && profile?.role !== "platform_admin" && !pendingRequest && profile?.role !== "barber" && !isAlsoBarber && (
+            <CardLink href="/solicitar" variant="secondary">
+              <span className="flex items-center gap-3">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100">
+                  <Send className="size-6 text-slate-600" />
+                </span>
+                <span className="font-semibold">Solicitar para ser barbeiro ou admin</span>
+              </span>
+            </CardLink>
           )}
         </div>
-      )}
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-900">The Barber{shopName ? ` - ${shopName}` : ""}</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-zinc-800">
-            {profile?.name} ({(profile?.role === "client" && "cliente") || (profile?.role === "barber" && "barbeiro") || (profile?.role === "shop_admin" && "admin da barbearia") || (profile?.role === "platform_admin" && "admin") || profile?.role})
-          </span>
-          <SignOutButton />
-        </div>
-      </header>
-
-      <div className="space-y-4">
-        {profile?.role !== "platform_admin" && (
-          <>
-            <Link
-              href="/book"
-              className="block rounded-lg bg-zinc-900 p-4 text-white hover:bg-zinc-800"
-            >
-              Agendar
-            </Link>
-            <Link
-              href="/my-appointments"
-              className="block rounded-lg border border-zinc-300 bg-white p-4 hover:bg-zinc-50"
-            >
-              Meus agendamentos
-            </Link>
-          </>
-        )}
-
-        {(profile?.role === "shop_admin" || profile?.role === "platform_admin") && (
-          <Link
-            href="/admin/shops"
-            className="block rounded-lg bg-zinc-900 p-4 text-white hover:bg-zinc-800"
-          >
-            Gerenciar barbearias
-          </Link>
-        )}
-
-        {profile?.role === "platform_admin" && (
-          <>
-            <Link
-              href="/admin/requests"
-              className="relative block rounded-lg border border-zinc-300 bg-white p-4 hover:bg-zinc-50"
-            >
-              Solicitações (barbeiro / admin)
-              {pendingRequestsCount > 0 && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
-                  {pendingRequestsCount}
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/admin/users"
-              className="block rounded-lg border border-zinc-300 bg-white p-4 hover:bg-zinc-50"
-            >
-              Gerenciar usuários
-            </Link>
-          </>
-        )}
-
-        {(profile?.role === "barber" || isAlsoBarber) && (
-          <Link
-            href="/barber/schedule"
-            className="block rounded-lg bg-zinc-900 p-4 text-white hover:bg-zinc-800"
-          >
-            Minha agenda
-          </Link>
-        )}
       </div>
-      </div>
-    </div>
+    </PageContainer>
   );
 }

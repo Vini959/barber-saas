@@ -7,7 +7,10 @@ import { validateAddress, validatePhone } from "@/lib/validation";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SignOutButton } from "@/components/SignOutButton";
+import { PageContainer } from "@/components/PageContainer";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ArrowLeft, Building2, Plus } from "lucide-react";
 
 interface Barbershop {
   id: string;
@@ -28,7 +31,6 @@ export default function AdminShopsPage() {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   const isPlatformAdmin = profile?.role === "platform_admin";
-  const isShopAdmin = profile?.role === "shop_admin";
 
   useEffect(() => {
     async function load() {
@@ -60,12 +62,12 @@ export default function AdminShopsPage() {
     setFormError("");
     const addrCheck = validateAddress(address);
     if (!addrCheck.valid) {
-      setFormError(addrCheck.message ?? "Endereço inválido");
+      setFormError(addrCheck.message ?? "Endereco invalido");
       return;
     }
     const phoneCheck = validatePhone(phone);
     if (!phoneCheck.valid) {
-      setFormError(phoneCheck.message ?? "Telefone inválido");
+      setFormError(phoneCheck.message ?? "Telefone invalido");
       return;
     }
     setSubmitting(true);
@@ -89,87 +91,105 @@ export default function AdminShopsPage() {
 
   return (
     <ProtectedRoute allowedRoles={["platform_admin", "shop_admin"]}>
-      <div className="min-h-screen bg-zinc-100">
-        <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-12">
-        <header className="mb-8 flex items-center justify-between">
-          <div className="flex gap-4">
-            <Link href="/" className="text-zinc-800 hover:text-zinc-900">
-              ← Voltar
+      <PageContainer>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="size-4" />
+            Voltar
+          </Link>
+          {isPlatformAdmin && (
+            <Link
+              href="/admin/requests"
+              className="relative inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Solicitacoes
+              {pendingRequestsCount > 0 && (
+                <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-medium text-white">
+                  {pendingRequestsCount}
+                </span>
+              )}
             </Link>
-            {isPlatformAdmin && (
-              <Link href="/admin/requests" className="relative inline-flex items-center text-zinc-800 hover:text-zinc-900">
-                Solicitações
-                {pendingRequestsCount > 0 && (
-                  <span className="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
-                    {pendingRequestsCount}
-                  </span>
-                )}
-              </Link>
-            )}
-          </div>
-          <SignOutButton />
-        </header>
+          )}
+        </div>
 
-        <h1 className="mb-6 text-2xl font-bold text-zinc-900">
-          Barbearias
-        </h1>
+        <h1 className="mb-6 text-2xl font-bold text-slate-900">Barbearias</h1>
 
         {loading ? (
-          <p className="text-zinc-600">Carregando...</p>
+          <div className="flex items-center gap-3">
+            <div className="size-6 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
+            <p className="text-slate-600">Carregando...</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {shops.map((s) => (
               <Link
                 key={s.id}
                 href={`/admin/shops/${s.id}`}
-                className="block rounded-lg border border-zinc-300 bg-white p-4 hover:bg-zinc-50"
+                className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
               >
-                <h2 className="font-medium">{s.name}</h2>
-                <p className="text-sm text-zinc-800">{s.address}</p>
+                <div className="flex items-center gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100">
+                    <Building2 className="size-6 text-slate-600" />
+                  </span>
+                  <div>
+                    <h2 className="font-semibold text-slate-900">{s.name}</h2>
+                    <p className="text-sm text-slate-600">{s.address}</p>
+                  </div>
+                  <span className="ml-auto text-slate-400">-&gt;</span>
+                </div>
               </Link>
             ))}
 
             {isPlatformAdmin && (
-              <form onSubmit={handleCreate} className="mx-auto max-w-md rounded-lg border border-dashed border-zinc-300 bg-white p-4">
-                <h3 className="mb-3 font-medium">Criar barbearia</h3>
-                <input
-                  type="text"
-                  placeholder="Nome"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mb-2 w-full rounded border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-800"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Endereço (obrigatório, min. 10 caracteres)"
-                  value={address}
-                  onChange={(e) => { setAddress(e.target.value); setFormError(""); }}
-                  className="mb-2 w-full rounded border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-800"
-                  required
-                  minLength={10}
-                />
-                <input
-                  type="tel"
-                  placeholder="Telefone (10 ou 11 dígitos)"
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setFormError(""); }}
-                  className="mb-2 w-full rounded border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-800"
-                />
-                {formError && <p className="mb-2 text-sm text-red-600">{formError}</p>}
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-800 disabled:opacity-50"
-                >
-                  Criar
-                </button>
+              <form
+                onSubmit={handleCreate}
+                className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6"
+              >
+                <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-900">
+                  <Plus className="size-5" />
+                  Criar barbearia
+                </h3>
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                  <Input
+                    placeholder="Endereco (min. 10 caracteres)"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setFormError("");
+                    }}
+                    required
+                    minLength={10}
+                  />
+                  <Input
+                    type="tel"
+                    placeholder="Telefone (10 ou 11 digitos)"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      setFormError("");
+                    }}
+                  />
+                  {formError && (
+                    <p className="text-sm text-red-600">{formError}</p>
+                  )}
+                  <Button type="submit" variant="primary" disabled={submitting}>
+                    {submitting ? "Criando..." : "Criar"}
+                  </Button>
+                </div>
               </form>
             )}
           </div>
         )}
-        </div>
-      </div>
+      </PageContainer>
     </ProtectedRoute>
   );
 }
